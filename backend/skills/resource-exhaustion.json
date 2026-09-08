@@ -1,0 +1,18 @@
+{
+  "id": "resource-exhaustion",
+  "name": "Esgotamento de recursos",
+  "version": "1.0.0",
+  "description": "Investiga memória, CPU, conexões e capacidade de serviços.",
+  "trigger_categories": ["memory", "database", "capacity"],
+  "allowed_tools": ["get_metrics", "search_logs", "get_recent_deployments", "get_dependency_status"],
+  "max_hypotheses": 3,
+  "max_tool_calls": 8,
+  "context_budget_items": 7,
+  "instructions": [
+    "Correlacione saturação com volume e mudanças recentes.",
+    "Separe sintoma de causa raiz.",
+    "Exija aprovação para restart, scaling ou alteração de configuração."
+  ],
+  "output_contract": ["diagnosis", "confidence", "evidence", "mitigation", "approval_required"]
+}
+

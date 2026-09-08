@@ -1,0 +1,18 @@
+{
+  "id": "queue-backlog",
+  "name": "Acúmulo em filas",
+  "version": "1.0.0",
+  "description": "Investiga crescimento de backlog, consumidores lentos e dependências indisponíveis.",
+  "trigger_categories": ["queue_backlog"],
+  "allowed_tools": ["get_metrics", "search_logs", "get_dependency_status", "get_recent_deployments"],
+  "max_hypotheses": 3,
+  "max_tool_calls": 7,
+  "context_budget_items": 6,
+  "instructions": [
+    "Diferencie falta de consumidores de lentidão em dependências.",
+    "Verifique taxa de entrada e processamento.",
+    "Não reinicie workers automaticamente."
+  ],
+  "output_contract": ["diagnosis", "confidence", "evidence", "mitigation", "approval_required"]
+}
+

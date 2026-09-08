@@ -1,0 +1,18 @@
+{
+  "id": "api-regression",
+  "name": "Regressão após implantação",
+  "version": "1.0.0",
+  "description": "Investiga aumento de erros ou latência após uma mudança recente.",
+  "trigger_categories": ["deployment_regression", "latency"],
+  "allowed_tools": ["get_metrics", "search_logs", "get_recent_deployments", "get_dependency_status"],
+  "max_hypotheses": 3,
+  "max_tool_calls": 8,
+  "context_budget_items": 6,
+  "instructions": [
+    "Compare o início do alerta com a implantação mais recente.",
+    "Procure evidências contrárias antes de confirmar uma regressão.",
+    "Nunca proponha rollback sem aprovação humana."
+  ],
+  "output_contract": ["diagnosis", "confidence", "evidence", "mitigation", "approval_required"]
+}
+
