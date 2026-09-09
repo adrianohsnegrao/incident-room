@@ -1,0 +1,17 @@
+services:
+  incident-room:
+    build: .
+    ports:
+      - "8030:8030"
+    environment:
+      INCIDENT_ROOM_ENV: production
+      HOST: 0.0.0.0
+      PORT: 8030
+      INCIDENT_ROOM_DB: /app/.local/incident-room.db
+      INCIDENT_ROOM_MAX_EVIDENCE: 100
+    volumes:
+      - incident_room_data:/app/.local
+    restart: unless-stopped
+
+volumes:
+  incident_room_data:

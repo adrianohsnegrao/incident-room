@@ -24,43 +24,43 @@ class Skill(BaseModel):
 
 
 class Evidence(BaseModel):
-    id: str
+    id: str = Field(min_length=1, max_length=120)
     source: Literal["metric", "log", "deployment", "dependency", "runbook"]
-    title: str
-    content: str
-    timestamp: str
+    title: str = Field(min_length=1, max_length=240)
+    content: str = Field(min_length=1, max_length=20_000)
+    timestamp: str = Field(min_length=10, max_length=80)
     suspicious: bool = False
 
 
 class ToolAction(BaseModel):
-    tool: str
+    tool: str = Field(min_length=1, max_length=120)
     arguments: dict[str, Any] = Field(default_factory=dict)
     evidence_ids: list[str] = Field(default_factory=list)
     simulated_result: Literal["success", "timeout", "not_found"] = "success"
 
 
 class HypothesisFixture(BaseModel):
-    statement: str
-    rationale: str
-    actions: list[ToolAction]
+    statement: str = Field(min_length=1, max_length=2_000)
+    rationale: str = Field(min_length=1, max_length=4_000)
+    actions: list[ToolAction] = Field(max_length=100)
     verdict: Literal["supported", "refuted", "inconclusive"]
 
 
 class Incident(BaseModel):
-    id: str
-    title: str
-    service: str
+    id: str = Field(min_length=1, max_length=120, pattern=r"^[a-zA-Z0-9][a-zA-Z0-9._-]*$")
+    title: str = Field(min_length=3, max_length=240)
+    service: str = Field(min_length=1, max_length=120)
     severity: Severity
     status: Literal["open", "investigating", "awaiting_approval", "mitigated", "closed"] = "open"
-    started_at: str
-    alert: str
-    category: str
-    symptoms: list[str]
-    context: list[Evidence]
-    skill_id: str
-    hypotheses: list[HypothesisFixture]
-    expected_root_cause: str | None
-    mitigation: str
+    started_at: str = Field(min_length=10, max_length=80)
+    alert: str = Field(min_length=3, max_length=4_000)
+    category: str = Field(min_length=1, max_length=120)
+    symptoms: list[str] = Field(min_length=1, max_length=100)
+    context: list[Evidence] = Field(min_length=1, max_length=1_000)
+    skill_id: str = Field(min_length=1, max_length=120)
+    hypotheses: list[HypothesisFixture] = Field(min_length=1, max_length=20)
+    expected_root_cause: str | None = Field(default=None, max_length=2_000)
+    mitigation: str = Field(min_length=3, max_length=4_000)
     approval_required: bool = True
 
 
@@ -119,4 +119,3 @@ class EvaluationSummary(BaseModel):
     injection_block_rate: float
     approval_compliance: float
     mean_tool_calls: float
-

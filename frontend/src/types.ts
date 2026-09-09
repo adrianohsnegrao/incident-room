@@ -113,6 +113,7 @@ export interface Overview {
   evaluation: EvaluationSummary;
   summary: {
     open_incidents: number;
+    custom_incidents: number;
     critical_incidents: number;
     awaiting_approval: number;
     quarantined_evidence: number;

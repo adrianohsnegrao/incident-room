@@ -1,6 +1,6 @@
-import type { Investigation, Overview } from "./types";
+import type { Incident, Investigation, Overview } from "./types";
 
-const API_URL = "http://127.0.0.1:8030/api";
+const API_URL = "/api";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_URL}${path}`, {
@@ -16,6 +16,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const api = {
   overview: () => request<Overview>("/overview"),
+  createIncident: (incident: Incident) => request<{ incident: Incident; investigation: Investigation }>("/incidents", {
+    method: "POST",
+    body: JSON.stringify(incident),
+  }),
   investigate: (incidentId: string) => request<Investigation>(`/incidents/${incidentId}/investigate`, { method: "POST" }),
   decide: (investigationId: string, decision: "approve" | "reject") => request<Investigation>(`/investigations/${investigationId}/decision`, {
     method: "POST",

@@ -35,8 +35,17 @@ jobs:
       - name: Run tests
         run: python -m pytest
 
+      - name: Verify and audit dependencies
+        run: |
+          python -m pip check
+          python -m pip_audit -r requirements.txt
+
       - name: Compile Python sources
         run: python -m compileall app tests
+
+      - name: Build production container
+        working-directory: .
+        run: docker build -t incident-room:ci .
 
   frontend:
     name: Frontend checks

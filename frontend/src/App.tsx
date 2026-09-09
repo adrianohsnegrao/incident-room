@@ -2,11 +2,12 @@ import { useEffect, useMemo, useState } from "react";
 import { api } from "./api";
 import type { Incident, Investigation, Overview, Skill } from "./types";
 
-type Page = "overview" | "incidents" | "skills" | "evaluation" | "help";
+type Page = "overview" | "incidents" | "import" | "skills" | "evaluation" | "help";
 
 const nav: Array<{ id: Page; label: string; icon: string }> = [
   { id: "overview", label: "Visão geral", icon: "▦" },
   { id: "incidents", label: "Incidentes", icon: "!" },
+  { id: "import", label: "Importar incidente", icon: "⇧" },
   { id: "skills", label: "Runbooks", icon: "◇" },
   { id: "evaluation", label: "Avaliações", icon: "✓" },
   { id: "help", label: "Como funciona", icon: "?" },
@@ -15,6 +16,7 @@ const nav: Array<{ id: Page; label: string; icon: string }> = [
 const pageCopy: Record<Page, { eyebrow: string; title: string; description: string }> = {
   overview: { eyebrow: "CENTRAL OPERACIONAL", title: "Investigue antes de agir.", description: "Evidências, hipóteses e decisões humanas em uma única linha do tempo." },
   incidents: { eyebrow: "FILA DE INCIDENTES", title: "O que precisa de atenção agora.", description: "Abra um incidente para revisar contexto, diagnóstico e mitigação proposta." },
+  import: { eyebrow: "NOVO CASO", title: "Investigue um pacote de evidências próprio.", description: "Importe um incidente no contrato JSON para gerar uma investigação persistente e auditável." },
   skills: { eyebrow: "PROCEDIMENTOS VERSIONADOS", title: "Cada investigação segue um runbook.", description: "Skills definem gatilhos, ferramentas, limites, instruções e contrato de saída." },
   evaluation: { eyebrow: "QUALIDADE DO SISTEMA", title: "Comportamento mensurável, não confiança cega.", description: "A suíte verifica diagnóstico, segurança, aprovação e encerramento." },
   help: { eyebrow: "ENTENDA O FLUXO", title: "Um investigador assistido, não um operador autônomo.", description: "O sistema reúne evidências e propõe ações; a autoridade continua com a pessoa." },
@@ -94,6 +96,30 @@ function EvaluationPage({ data }: { data: Overview }) {
   return <><section className="evaluation-hero"><div><span>GOLDEN DATASET v1.0</span><h2>Gate aprovado para demonstração</h2><p>Os resultados medem fixtures determinísticas. Não representam desempenho geral de um modelo real.</p></div><strong>APROVADO</strong></section><section className="evaluation-grid">{metrics.map(([label, value, note]) => <article key={label}><span>{label}</span><strong>{value}</strong><small>{note}</small><div><i style={{ width: value }} /></div></article>)}</section><section className="panel compact"><div className="section-heading"><div><span>EFICIÊNCIA</span><h2>Média de {data.evaluation.mean_tool_calls} chamadas por investigação</h2></div></div><p className="body-copy">A métrica verifica se o agente obtém evidências suficientes sem prolongar o loop. Cada skill também possui orçamento próprio e condições explícitas de parada.</p></section></>;
 }
 
+function ImportPage({ onImported }: { onImported: (incident: Incident) => void }) {
+  const [file, setFile] = useState<File | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+
+  const submit = async () => {
+    if (!file) return;
+    setBusy(true);
+    setMessage("");
+    try {
+      const incident = JSON.parse(await file.text()) as Incident;
+      const created = await api.createIncident(incident);
+      setMessage(`Incidente ${created.incident.id} importado e investigado com sucesso.`);
+      onImported(created.incident);
+    } catch (reason) {
+      setMessage(reason instanceof Error ? reason.message : "Não foi possível importar o incidente.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return <div className="import-layout"><section className="panel import-panel"><div className="section-heading"><div><span>PACOTE VERSIONÁVEL</span><h2>Importar incidente JSON</h2></div></div><p className="body-copy">O arquivo reúne alerta, sintomas, evidências capturadas, hipóteses testáveis e a skill que limitará a investigação. O conteúdo é validado antes de ser persistido.</p><label className="file-field"><span>Arquivo do incidente <b>obrigatório</b></span><input type="file" accept=".json,application/json" onChange={(event) => setFile(event.target.files?.[0] ?? null)} /></label><button className="primary import-submit" disabled={!file || busy} onClick={() => void submit()}>{busy ? "Investigando..." : "Importar e investigar"}</button>{message && <div className="import-message" role="status">{message}</div>}</section><aside className="panel import-guide"><span>COMO PREPARAR</span><h2>Use o contrato executável</h2><ol><li>Copie um caso de <code>backend/examples</code>.</li><li>Substitua alerta, sintomas e evidências por dados exportados e higienizados.</li><li>Marque conteúdo suspeito para mantê-lo em quarentena.</li><li>Declare hipóteses e ações capturadas compatíveis com uma skill instalada.</li></ol><p>O MVP não acessa sua infraestrutura nem executa a mitigação proposta.</p></aside></div>;
+}
+
 function HelpPage({ onTutorial }: { onTutorial: () => void }) {
   const steps = [
     ["01", "Classificar", "Identifica categoria, serviço e severidade do alerta."],
@@ -141,6 +167,7 @@ export default function App() {
     if (!data) return null;
     if (page === "overview") return <OverviewPage data={data} onOpen={(incident) => setSelectedId(incident.id)} />;
     if (page === "incidents") return <IncidentsPage data={data} onOpen={(incident) => setSelectedId(incident.id)} />;
+    if (page === "import") return <ImportPage onImported={(incident) => { void load(); setSelectedId(incident.id); }} />;
     if (page === "skills") return <SkillsPage skills={data.skills} />;
     if (page === "evaluation") return <EvaluationPage data={data} />;
     return <HelpPage onTutorial={() => setTutorial(true)} />;

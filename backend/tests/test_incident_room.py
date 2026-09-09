@@ -1,13 +1,32 @@
+import json
+from pathlib import Path
+
+import pytest
 from fastapi.testclient import TestClient
 
 from app.engine import evaluate_suite, investigate_incident
 from app.fixtures import INCIDENTS
-from app.main import app
+from app.main import app, create_app
+from app.models import Incident
+from app.repository import IncidentRepository
+from app.settings import Settings
 from app.skills import SKILL_MAP, SKILLS
 
 
 def investigate_all():
     return [investigate_incident(incident, SKILL_MAP[incident.skill_id]) for incident in INCIDENTS]
+
+
+def make_settings(tmp_path: Path, frontend_dist: Path | None = None) -> Settings:
+    return Settings(
+        environment="test",
+        host="127.0.0.1",
+        port=8030,
+        database_path=tmp_path / "incident-room.db",
+        frontend_dist=frontend_dist or tmp_path / "missing-frontend",
+        allowed_origins=("http://127.0.0.1:5176",),
+        max_evidence_items=100,
+    )
 
 
 def test_skills_are_versioned_and_have_execution_limits() -> None:
@@ -95,3 +114,61 @@ def test_missing_resources_return_not_found() -> None:
     client = TestClient(app)
     assert client.get("/api/incidents/unknown").status_code == 404
     assert client.get("/api/investigations/unknown").status_code == 404
+
+
+def test_runs_and_human_decision_survive_restart(tmp_path: Path) -> None:
+    settings = make_settings(tmp_path)
+    repository = IncidentRepository(settings.database_path)
+    client = TestClient(create_app(settings, repository))
+    run = client.post("/api/incidents/inc-1042/investigate").json()
+    decided = client.post(
+        f"/api/investigations/{run['id']}/decision",
+        json={"decision": "reject", "reviewer": "SRE responsável", "justification": "Coletar mais evidências."},
+    )
+    assert decided.status_code == 200
+    repository.close()
+
+    reopened = IncidentRepository(settings.database_path)
+    persisted = reopened.get_investigation(run["id"])
+    assert persisted is not None
+    assert persisted.approval_status == "rejected"
+    assert persisted.trace[-1].node == "human_decision"
+    reopened.close()
+
+
+def test_external_incident_is_validated_investigated_and_persisted(tmp_path: Path) -> None:
+    settings = make_settings(tmp_path)
+    repository = IncidentRepository(settings.database_path)
+    client = TestClient(create_app(settings, repository))
+    example = Path(__file__).parents[1] / "examples" / "incident-import-example.json"
+    payload = json.loads(example.read_text(encoding="utf-8"))
+    response = client.post("/api/incidents", json=payload)
+    assert response.status_code == 201
+    assert response.json()["investigation"]["confidence"] >= 70
+    assert repository.get_incident(payload["id"]) == Incident.model_validate(payload)
+    assert client.post("/api/incidents", json=payload).status_code == 409
+    repository.close()
+
+
+def test_operational_probes_security_headers_static_ui_and_backup(tmp_path: Path) -> None:
+    frontend = tmp_path / "frontend"
+    frontend.mkdir()
+    (frontend / "index.html").write_text("<h1>Incident Room</h1>", encoding="utf-8")
+    settings = make_settings(tmp_path, frontend)
+    repository = IncidentRepository(settings.database_path)
+    client = TestClient(create_app(settings, repository))
+    ready = client.get("/api/health/ready")
+    assert ready.status_code == 200
+    assert ready.json()["incidents"] == 6
+    assert ready.headers["x-content-type-options"] == "nosniff"
+    assert ready.headers["x-frame-options"] == "DENY"
+    assert ready.headers["x-request-id"]
+    assert client.get("/").text == "<h1>Incident Room</h1>"
+
+    backup = repository.backup(tmp_path / "backups" / "snapshot.db")
+    restored = IncidentRepository(backup)
+    assert restored.count_incidents() == repository.count_incidents()
+    restored.close()
+    with pytest.raises(ValueError, match="diferente do banco ativo"):
+        repository.backup(settings.database_path)
+    repository.close()

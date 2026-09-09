@@ -1,0 +1,72 @@
+{
+  "id": "inc-example-api-latency",
+  "title": "Latência elevada após alteração de configuração",
+  "service": "orders-api",
+  "severity": "P2",
+  "status": "open",
+  "started_at": "2026-09-08T14:20:00Z",
+  "alert": "A latência p95 aumentou de 380 ms para 2,4 s após a última implantação.",
+  "category": "deployment_regression",
+  "symptoms": [
+    "latência p95 acima de 2 s",
+    "taxa de erro estável",
+    "fila de conexões crescendo"
+  ],
+  "context": [
+    {
+      "id": "example-metric-1",
+      "source": "metric",
+      "title": "Latência da API",
+      "content": "p95=2400ms; baseline=380ms; início=14:20Z",
+      "timestamp": "2026-09-08T14:32:00Z",
+      "suspicious": false
+    },
+    {
+      "id": "example-deploy-1",
+      "source": "deployment",
+      "title": "Deploy orders-api 12.4",
+      "content": "HTTP_POOL_SIZE alterado de 30 para 5 às 14:18Z.",
+      "timestamp": "2026-09-08T14:18:00Z",
+      "suspicious": false
+    },
+    {
+      "id": "example-log-1",
+      "source": "log",
+      "title": "Espera por conexão",
+      "content": "http pool wait timeout; active=5; queued=94",
+      "timestamp": "2026-09-08T14:28:00Z",
+      "suspicious": false
+    }
+  ],
+  "skill_id": "api-regression",
+  "hypotheses": [
+    {
+      "statement": "A redução do pool HTTP introduzida no deploy causou contenção.",
+      "rationale": "A mudança precede o alerta e os logs confirmam espera no pool.",
+      "actions": [
+        {
+          "tool": "get_recent_deployments",
+          "arguments": { "service": "orders-api" },
+          "evidence_ids": ["example-deploy-1"],
+          "simulated_result": "success"
+        },
+        {
+          "tool": "search_logs",
+          "arguments": { "query": "pool wait" },
+          "evidence_ids": ["example-log-1"],
+          "simulated_result": "success"
+        },
+        {
+          "tool": "get_metrics",
+          "arguments": { "metric": "latency_p95" },
+          "evidence_ids": ["example-metric-1"],
+          "simulated_result": "success"
+        }
+      ],
+      "verdict": "supported"
+    }
+  ],
+  "expected_root_cause": "A redução do pool HTTP introduzida no deploy causou contenção.",
+  "mitigation": "Restaurar HTTP_POOL_SIZE para 30 em rollout controlado após aprovação.",
+  "approval_required": true
+}
